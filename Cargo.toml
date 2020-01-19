@@ -10,6 +10,7 @@ description = """
 A simple Rust graphql service boilerplate using actix, mongodb and juniper
 """
 default-run = "main"
+repository = "https://github.com/briandeboer/graphql-mongodb-boilerplate"
 
 [[bin]]
 name = "main"
