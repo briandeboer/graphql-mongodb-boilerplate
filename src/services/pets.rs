@@ -1,6 +1,6 @@
 use crate::graphql_schema::Context;
 use crate::schema::pets::{NewPet, Pet, PetConnection, PetTypes, UpdatePet};
-use bson::{bson, doc};
+use bson::doc;
 use juniper::FieldError;
 use log::warn;
 use mongodb::options::FindOptions;

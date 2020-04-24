@@ -1,4 +1,4 @@
-use bson::{bson, doc, oid::ObjectId};
+use bson::{doc, oid::ObjectId};
 use mongodb_cursor_pagination::{Edge, PageInfo};
 use serde::{Deserialize, Serialize};
 

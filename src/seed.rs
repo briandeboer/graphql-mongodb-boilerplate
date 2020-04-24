@@ -4,7 +4,7 @@ mod db;
 mod schema;
 mod services;
 
-use bson::{bson, doc};
+use bson::{doc};
 use crate::schema::owners::Owner;
 use crate::db::DataSources;
 use crate::graphql_schema::{create_schema, Schema};
