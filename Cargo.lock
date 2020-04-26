@@ -902,7 +902,7 @@ dependencies = [
 
 [[package]]
 name = "graphql-mongodb-boilerplate"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "actix-rt",
  "actix-web",
@@ -1300,7 +1300,9 @@ dependencies = [
 
 [[package]]
 name = "mongodb-base-service"
-version = "0.2.0"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a39de0d7b48c428354e14ed71c02a27e0eff97ad91c8b4a963478236c7ac079"
 dependencies = [
  "base64 0.12.0",
  "bson",
