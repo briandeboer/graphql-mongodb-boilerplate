@@ -1,10 +1,12 @@
-use bson::{doc, oid::ObjectId};
-use mongodb_cursor_pagination::{get_object_id, Edge, PageInfo};
+use chrono::{DateTime, Utc};
+use log::warn;
+use mongodb_base_service::{BaseService, Node, NodeDetails, ServiceError, ID};
+use mongodb_cursor_pagination::{Edge, FindResult, PageInfo};
 use serde::{Deserialize, Serialize};
 
-use crate::graphql_schema::Context;
-use crate::schema::common::Gender;
-use crate::schema::owners::Owner;
+use crate::db::Clients;
+use crate::models::common::Gender;
+use crate::models::owners::Owner;
 
 #[derive(juniper::GraphQLEnum, Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum PetTypes {
@@ -15,21 +17,42 @@ pub enum PetTypes {
     Turtle,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Pet {
-    #[serde(rename = "_id")] // Use MongoDB's special primary key field name when serializing
-    _id: ObjectId,
+    pub node: NodeDetails,
     name: String,
     pet_type: PetTypes,
     age: Option<i32>,
     gender: Gender,
-    owner: Option<juniper::ID>,
+    owner: Option<ID>,
 }
 
-#[juniper::object(Context = Context, description = "A lovable pet")]
+impl Node for Pet {
+    fn node(&self) -> &NodeDetails {
+        &self.node
+    }
+}
+
+#[juniper::object(Context = Clients, description = "A lovable pet")]
 impl Pet {
-    fn id(&self) -> juniper::ID {
-        self._id.to_hex().into()
+    pub fn id(&self) -> juniper::ID {
+        self.node.id().into()
+    }
+
+    fn date_created(&self) -> DateTime<Utc> {
+        self.node.date_created()
+    }
+
+    fn date_modified(&self) -> DateTime<Utc> {
+        self.node.date_modified()
+    }
+
+    fn created_by(&self) -> juniper::ID {
+        self.node.created_by_id().into()
+    }
+
+    fn updated_by(&self) -> juniper::ID {
+        self.node.updated_by_id().into()
     }
 
     fn name(&self) -> String {
@@ -51,38 +74,34 @@ impl Pet {
         self.gender
     }
 
-    fn owner(&self, context: &Context) -> Option<Owner> {
+    fn owner(&self, ctx: &Clients) -> Option<Owner> {
         match &self.owner {
             None => None,
             Some(owner_id) => {
-                let owners_coll = &context.data_sources.owners;
-                // convert the juniper ID (string) into an object id
-                let id = get_object_id(&owner_id.to_string()).unwrap();
-                let owner_result = owners_coll
-                    .find_one(doc! { "_id": id }, None)
-                    .expect("Unable to connect to owners collection");
-                match owner_result {
-                    Some(owner_doc) => {
-                        let owner: Owner =
-                            bson::from_bson(bson::Bson::Document(owner_doc)).unwrap();
-                        Some(owner)
+                let service = &ctx.mongo.get_mongo_service("owners").unwrap();
+                let result: Result<Option<Owner>, ServiceError> =
+                    service.find_one_by_id(owner_id.clone());
+                match result {
+                    Ok(owner) => owner,
+                    Err(e) => {
+                        warn!("unable to retrieve owner by id {:?}", owner_id);
+                        None
                     }
-                    None => None,
                 }
             }
         }
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct PetConnection {
     pub page_info: PageInfo,
     pub edges: Vec<Edge>,
-    pub pets: Vec<Pet>,
+    pub items: Vec<Pet>,
     pub total_count: i64,
 }
 
-#[juniper::object(Context = Context, description = "A list of pets")]
+#[juniper::object(Context = Clients)]
 impl PetConnection {
     fn page_info(&self) -> &PageInfo {
         &self.page_info
@@ -92,12 +111,23 @@ impl PetConnection {
         &self.edges
     }
 
-    fn pets(&self) -> &Vec<Pet> {
-        &self.pets
+    fn items(&self) -> &Vec<Pet> {
+        &self.items
     }
 
     fn total_count(&self) -> i32 {
         self.total_count as i32
+    }
+}
+
+impl From<FindResult<Pet>> for PetConnection {
+    fn from(fr: FindResult<Pet>) -> PetConnection {
+        PetConnection {
+            page_info: fr.page_info,
+            edges: fr.edges,
+            items: fr.items,
+            total_count: fr.total_count,
+        }
     }
 }
 

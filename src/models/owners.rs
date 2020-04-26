@@ -1,26 +1,41 @@
-use bson::{doc, oid::ObjectId};
-use mongodb_cursor_pagination::{Edge, PageInfo};
+use bson::doc;
+use chrono::{DateTime, Utc};
+use mongodb_base_service::{BaseService, Node, NodeDetails, ServiceError};
+use mongodb_cursor_pagination::{Edge, FindResult, PageInfo};
 use serde::{Deserialize, Serialize};
 
-use crate::graphql_schema::Context;
-use crate::schema::common::Gender;
-use crate::schema::pets::Pet;
+use crate::db::Clients;
+use crate::models::common::Gender;
+use crate::models::pets::Pet;
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Owner {
-    #[serde(rename = "_id")] // Use MongoDB's special primary key field name when serializing
-    pub id: ObjectId,
+    pub node: NodeDetails,
     username: String,
     first_name: String,
     last_name: String,
     gender: Gender,
 }
 
+impl Node for Owner {
+    fn node(&self) -> &NodeDetails {
+        &self.node
+    }
+}
+
 // notice that we do an impl version here because juniper doesn't know how to do a bson id
-#[juniper::object(Context = Context, description = "A person who owns pets")]
+#[juniper::object(Context = Clients, description = "A person who owns pets")]
 impl Owner {
-    fn id(&self) -> String {
-        self.id.to_hex()
+    pub fn id(&self) -> juniper::ID {
+        self.node.id().into()
+    }
+
+    fn date_created(&self) -> DateTime<Utc> {
+        self.node.date_created()
+    }
+
+    fn date_modified(&self) -> DateTime<Utc> {
+        self.node.date_modified()
     }
 
     fn username(&self) -> String {
@@ -39,36 +54,27 @@ impl Owner {
         self.gender
     }
 
-    fn pets(&self, context: &Context) -> Option<Vec<Pet>> {
-        let pets_collection = &context.data_sources.pets;
-        // convert the juniper ID (string) into an object id
-        let query_doc = doc! { "owner": self.id.to_hex() };
-        let cursor = pets_collection.find(query_doc, None).unwrap();
-        let mut pets: Vec<Pet> = vec![];
-        for result in cursor {
-            match result {
-                Ok(doc) => {
-                    let pet = bson::from_bson(bson::Bson::Document(doc.clone())).unwrap();
-                    pets.push(pet);
-                }
-                Err(error) => {
-                    println!("Error to find doc: {}", error);
-                }
-            }
+    fn pets(&self, ctx: &Clients) -> Vec<Pet> {
+        let service = &ctx.mongo.get_mongo_service("pets").unwrap();
+        let filter = doc! { "owner": self.node.id.to_string() };
+        let result: Result<FindResult<Pet>, ServiceError> =
+            service.find(Some(filter), None, None, None, None, None);
+        match result {
+            Ok(all_items) => all_items.items,
+            Err(e) => Vec::new(),
         }
-        Some(pets)
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct OwnerConnection {
     pub page_info: PageInfo,
     pub edges: Vec<Edge>,
-    pub owners: Vec<Owner>,
+    pub items: Vec<Owner>,
     pub total_count: i64,
 }
 
-#[juniper::object(Context = Context)]
+#[juniper::object(Context = Clients)]
 impl OwnerConnection {
     fn page_info(&self) -> &PageInfo {
         &self.page_info
@@ -78,12 +84,23 @@ impl OwnerConnection {
         &self.edges
     }
 
-    fn owners(&self) -> &Vec<Owner> {
-        &self.owners
+    fn items(&self) -> &Vec<Owner> {
+        &self.items
     }
 
     fn total_count(&self) -> i32 {
         self.total_count as i32
+    }
+}
+
+impl From<FindResult<Owner>> for OwnerConnection {
+    fn from(fr: FindResult<Owner>) -> OwnerConnection {
+        OwnerConnection {
+            page_info: fr.page_info,
+            edges: fr.edges,
+            items: fr.items,
+            total_count: fr.total_count,
+        }
     }
 }
 

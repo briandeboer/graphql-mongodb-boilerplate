@@ -1,67 +1,42 @@
-// #[macro_use] extern crate juniper;
+use actix_web::middleware::{DefaultHeaders, Logger};
+use actix_web::{App, HttpServer};
+use dotenv::dotenv;
 use std::io;
 use std::sync::Arc;
-
-use actix_web::{middleware, web, App, Error, HttpResponse, HttpServer};
-use juniper::http::graphiql::graphiql_source;
-use juniper::http::GraphQLRequest;
+use uuid::Uuid;
 
 mod db;
-mod graphql_schema;
+mod models;
+mod routes;
 mod schema;
-mod services;
 
-use crate::db::DataSources;
-use crate::graphql_schema::{create_schema, Context, Schema};
-
-async fn graphiql() -> HttpResponse {
-    let html = graphiql_source("http://localhost:8080/graphql");
-    HttpResponse::Ok()
-        .content_type("text/html; charset=utf-8")
-        .body(html)
-}
-
-async fn graphql(
-    st: web::Data<Arc<Schema>>,
-    ctx: web::Data<Context>,
-    data: web::Json<GraphQLRequest>,
-) -> Result<HttpResponse, Error> {
-    let result = web::block(move || {
-        let res = data.execute(&st, &ctx);
-        Ok::<_, serde_json::error::Error>(serde_json::to_string(&res)?)
-    })
-    .await?;
-    Ok(HttpResponse::Ok()
-        .content_type("application/json")
-        .body(result))
-}
+use crate::db::Clients;
+use crate::routes::app_routes;
+use crate::schema::create_schema;
 
 #[actix_rt::main]
 async fn main() -> io::Result<()> {
-    std::env::set_var("RUST_LOG", "warn,actix_web=info");
+    std::env::set_var("RUST_LOG", "info,actix_web=warn");
     env_logger::init();
+    dotenv().ok();
 
-    // Create Juniper schema
-    let schema = std::sync::Arc::new(create_schema());
+    let port = dotenv::var("PORT").unwrap_or("8080".to_owned());
 
-    // connect to Mongo
-    let client = db::establish_connection();
+    let db_clients = Arc::new(Clients {
+        mongo: db::mongo::connect(),
+    });
 
-    let data_sources = DataSources {
-        owners: client.collection("owners"),
-        pets: client.collection("pets"),
-    };
-    let schema_context = Context { data_sources };
+    let gql = std::sync::Arc::new(create_schema());
     // Start http server
     HttpServer::new(move || {
         App::new()
-            .data(schema.clone())
-            .data(schema_context.clone())
-            .wrap(middleware::Logger::default())
-            .service(web::resource("/graphql").route(web::post().to(graphql)))
-            .service(web::resource("/graphiql").route(web::get().to(graphiql)))
+            .data(gql.clone())
+            .data(db_clients.clone())
+            .wrap(DefaultHeaders::new().header("x-request-id", Uuid::new_v4().to_string()))
+            .wrap(Logger::new("IP:%a DATETIME:%t REQUEST:\"%r\" STATUS: %s DURATION:%D X-REQUEST-ID:%{x-request-id}o"))
+            .configure(app_routes)
     })
-    .bind("127.0.0.1:8080")?
+    .bind(format!("0.0.0.0:{}", port))?
     .run()
     .await
 }
