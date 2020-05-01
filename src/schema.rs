@@ -100,7 +100,7 @@ impl Query {
     }
 
     fn owner_by_id(ctx: &Clients, id: ID) -> Result<Owner, FieldError> {
-        let service = &ctx.mongo.get_mongo_service("owner").unwrap();
+        let service = &ctx.mongo.get_mongo_service("owners").unwrap();
         let result: Result<Option<Owner>, ServiceError> = service.find_one_by_id(id);
         match result {
             Ok(item) => match item {

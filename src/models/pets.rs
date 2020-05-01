@@ -1,4 +1,3 @@
-use bson::oid::ObjectId;
 use chrono::{DateTime, Utc};
 use log::warn;
 use mongodb_base_service::{BaseService, Node, NodeDetails, ServiceError, ID};
@@ -22,13 +21,13 @@ pub enum PetTypes {
 pub struct Pet {
     #[serde(rename = "_id")]
     // Use MongoDB's special primary key field name when serializing
-    pub id: ObjectId,
+    pub id: ID,
     pub node: NodeDetails,
     name: String,
     pet_type: PetTypes,
     age: Option<i32>,
     gender: Gender,
-    owner: Option<ObjectId>,
+    owner: Option<ID>,
 }
 
 impl Node for Pet {
@@ -39,8 +38,8 @@ impl Node for Pet {
 
 #[juniper::object(Context = Clients, description = "A lovable pet")]
 impl Pet {
-    pub fn id(&self) -> ID {
-        self.id.clone().into()
+    pub fn id(&self) -> &ID {
+        &self.id
     }
 
     fn date_created(&self) -> Option<DateTime<Utc>> {
@@ -51,22 +50,22 @@ impl Pet {
         self.node.date_modified()
     }
 
-    fn created_by(&self) -> Option<juniper::ID> {
+    fn created_by(&self) -> Option<&ID> {
         match self.node.created_by_id() {
-            Some(id) => Some(id.into()),
+            Some(id) => Some(id),
             None => None,
         }
     }
 
-    fn updated_by(&self) -> Option<juniper::ID> {
+    fn updated_by(&self) -> Option<&ID> {
         match self.node.updated_by_id() {
-            Some(id) => Some(id.into()),
+            Some(id) => Some(id),
             None => None,
         }
     }
 
-    fn name(&self) -> String {
-        self.name.to_owned()
+    fn name(&self) -> &str {
+        &self.name
     }
 
     fn pet_type(&self) -> PetTypes {

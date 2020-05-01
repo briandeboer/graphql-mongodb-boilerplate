@@ -1,17 +1,17 @@
-use bson::{doc, oid::ObjectId};
+use crate::db::Clients;
+use crate::models::common::Gender;
+use crate::models::pets::Pet;
+use bson::doc;
 use chrono::{DateTime, Utc};
 use mongodb_base_service::{BaseService, Node, NodeDetails, ServiceError, ID};
 use mongodb_cursor_pagination::{Edge, FindResult, PageInfo};
 use serde::{Deserialize, Serialize};
 
-use crate::db::Clients;
-use crate::models::common::Gender;
-use crate::models::pets::Pet;
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Owner {
-    #[serde(rename = "_id")] // Use MongoDB's special primary key field name when serializing
-    pub id: ObjectId,
+    #[serde(rename = "_id")]
+    // Use MongoDB's special primary key field name when serializing
+    pub id: ID,
     pub node: NodeDetails,
     username: String,
     first_name: String,
@@ -28,8 +28,8 @@ impl Node for Owner {
 // notice that we do an impl version here because juniper doesn't know how to do a bson id
 #[juniper::object(Context = Clients, description = "A person who owns pets")]
 impl Owner {
-    pub fn id(&self) -> ID {
-        self.id.clone().into()
+    pub fn id(&self) -> &ID {
+        &self.id
     }
 
     fn date_created(&self) -> Option<DateTime<Utc>> {
@@ -40,16 +40,16 @@ impl Owner {
         self.node.date_modified()
     }
 
-    fn username(&self) -> String {
-        self.username.to_owned()
+    fn username(&self) -> &str {
+        &self.username
     }
 
-    fn first_name(&self) -> String {
-        self.first_name.to_owned()
+    fn first_name(&self) -> &str {
+        &self.first_name
     }
 
-    fn last_name(&self) -> String {
-        self.last_name.to_owned()
+    fn last_name(&self) -> &str {
+        &self.last_name
     }
 
     fn gender(&self) -> Gender {
@@ -58,7 +58,7 @@ impl Owner {
 
     fn pets(&self, ctx: &Clients) -> Vec<Pet> {
         let service = &ctx.mongo.get_mongo_service("pets").unwrap();
-        let filter = doc! { "owner": self.id.clone() };
+        let filter = doc! { "owner": self.id.to_bson() };
         let result: Result<FindResult<Pet>, ServiceError> =
             service.find(Some(filter), None, None, None, None, None);
         match result {
