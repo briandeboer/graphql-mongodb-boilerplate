@@ -1,6 +1,6 @@
-use bson::doc;
+use bson::{doc, oid::ObjectId};
 use chrono::{DateTime, Utc};
-use mongodb_base_service::{BaseService, Node, NodeDetails, ServiceError};
+use mongodb_base_service::{BaseService, Node, NodeDetails, ServiceError, ID};
 use mongodb_cursor_pagination::{Edge, FindResult, PageInfo};
 use serde::{Deserialize, Serialize};
 
@@ -10,6 +10,8 @@ use crate::models::pets::Pet;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Owner {
+    #[serde(rename = "_id")] // Use MongoDB's special primary key field name when serializing
+    pub id: ObjectId,
     pub node: NodeDetails,
     username: String,
     first_name: String,
@@ -26,15 +28,15 @@ impl Node for Owner {
 // notice that we do an impl version here because juniper doesn't know how to do a bson id
 #[juniper::object(Context = Clients, description = "A person who owns pets")]
 impl Owner {
-    pub fn id(&self) -> juniper::ID {
-        self.node.id().into()
+    pub fn id(&self) -> ID {
+        self.id.clone().into()
     }
 
-    fn date_created(&self) -> DateTime<Utc> {
+    fn date_created(&self) -> Option<DateTime<Utc>> {
         self.node.date_created()
     }
 
-    fn date_modified(&self) -> DateTime<Utc> {
+    fn date_modified(&self) -> Option<DateTime<Utc>> {
         self.node.date_modified()
     }
 
@@ -56,7 +58,7 @@ impl Owner {
 
     fn pets(&self, ctx: &Clients) -> Vec<Pet> {
         let service = &ctx.mongo.get_mongo_service("pets").unwrap();
-        let filter = doc! { "owner": self.node.id.to_string() };
+        let filter = doc! { "owner": self.id.clone() };
         let result: Result<FindResult<Pet>, ServiceError> =
             service.find(Some(filter), None, None, None, None, None);
         match result {

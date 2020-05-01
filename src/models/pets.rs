@@ -1,3 +1,4 @@
+use bson::oid::ObjectId;
 use chrono::{DateTime, Utc};
 use log::warn;
 use mongodb_base_service::{BaseService, Node, NodeDetails, ServiceError, ID};
@@ -19,12 +20,15 @@ pub enum PetTypes {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Pet {
+    #[serde(rename = "_id")]
+    // Use MongoDB's special primary key field name when serializing
+    pub id: ObjectId,
     pub node: NodeDetails,
     name: String,
     pet_type: PetTypes,
     age: Option<i32>,
     gender: Gender,
-    owner: Option<ID>,
+    owner: Option<ObjectId>,
 }
 
 impl Node for Pet {
@@ -35,24 +39,30 @@ impl Node for Pet {
 
 #[juniper::object(Context = Clients, description = "A lovable pet")]
 impl Pet {
-    pub fn id(&self) -> juniper::ID {
-        self.node.id().into()
+    pub fn id(&self) -> ID {
+        self.id.clone().into()
     }
 
-    fn date_created(&self) -> DateTime<Utc> {
+    fn date_created(&self) -> Option<DateTime<Utc>> {
         self.node.date_created()
     }
 
-    fn date_modified(&self) -> DateTime<Utc> {
+    fn date_modified(&self) -> Option<DateTime<Utc>> {
         self.node.date_modified()
     }
 
-    fn created_by(&self) -> juniper::ID {
-        self.node.created_by_id().into()
+    fn created_by(&self) -> Option<juniper::ID> {
+        match self.node.created_by_id() {
+            Some(id) => Some(id.into()),
+            None => None,
+        }
     }
 
-    fn updated_by(&self) -> juniper::ID {
-        self.node.updated_by_id().into()
+    fn updated_by(&self) -> Option<juniper::ID> {
+        match self.node.updated_by_id() {
+            Some(id) => Some(id.into()),
+            None => None,
+        }
     }
 
     fn name(&self) -> String {
@@ -80,7 +90,7 @@ impl Pet {
             Some(owner_id) => {
                 let service = &ctx.mongo.get_mongo_service("owners").unwrap();
                 let result: Result<Option<Owner>, ServiceError> =
-                    service.find_one_by_id(owner_id.clone());
+                    service.find_one_by_id(owner_id.clone().into());
                 match result {
                     Ok(owner) => owner,
                     Err(e) => {
@@ -137,7 +147,7 @@ pub struct NewPet {
     pet_type: PetTypes,
     age: Option<i32>,
     gender: Gender,
-    owner: Option<juniper::ID>,
+    owner: Option<ID>,
 }
 
 #[derive(Serialize, Deserialize, juniper::GraphQLInputObject)]
@@ -160,5 +170,5 @@ pub struct UpdatePet {
 
     /// optional owner
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub owner: Option<juniper::ID>,
+    pub owner: Option<ID>,
 }

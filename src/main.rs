@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate cached;
+
 use actix_web::middleware::{DefaultHeaders, Logger};
 use actix_web::{App, HttpServer};
 use dotenv::dotenv;

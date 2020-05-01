@@ -1,14 +1,16 @@
+#[macro_use]
+extern crate cached;
+
 mod db;
 mod models;
 mod schema;
 
 use bson::doc;
 use dotenv::dotenv;
-use mongodb_base_service::BaseService;
+use mongodb_base_service::{BaseService, ID};
 use std::sync::Arc;
 
 use crate::db::Clients;
-use crate::models::{Owner, Pet};
 use crate::schema::{create_schema, Schema};
 
 fn main() {
@@ -48,36 +50,36 @@ fn main() {
     ];
 
     // add the owners
-    let results: Vec<Owner> = owners_service.insert_many(owners, None).unwrap();
-    let ids: Vec<String> = results.iter().map(|x| x.node.id.to_string()).collect();
+    let ids: Vec<ID> = owners_service.insert_many(owners, None).unwrap();
+    println!("{:?}", ids);
     let pets = vec![
         {
-            doc! { "name": "Fido", "pet_type": "Dog", "age": 10, "gender": "Male", "owner": &ids[0] }
+            doc! { "name": "Fido", "pet_type": "Dog", "age": 10, "gender": "Male", "owner": &ids[0].to_bson() }
         },
         {
-            doc! { "name": "Cleo", "pet_type": "Cat", "age": 12, "gender": "Female", "owner": &ids[1] }
+            doc! { "name": "Cleo", "pet_type": "Cat", "age": 12, "gender": "Female", "owner": &ids[1].to_bson() }
         },
         {
-            doc! { "name": "Oreo", "pet_type": "Cat", "age": 2, "gender": "Female", "owner": &ids[2] }
+            doc! { "name": "Oreo", "pet_type": "Cat", "age": 2, "gender": "Female", "owner": &ids[2].to_bson() }
         },
         {
-            doc! { "name": "Milo", "pet_type": "Dog", "age": 10, "gender": "Male", "owner": &ids[3] }
+            doc! { "name": "Milo", "pet_type": "Dog", "age": 10, "gender": "Male", "owner": &ids[3].to_bson() }
         },
         {
-            doc! { "name": "Squirt", "pet_type": "Fish", "age": 2, "gender": "Female", "owner": &ids[4] }
+            doc! { "name": "Squirt", "pet_type": "Fish", "age": 2, "gender": "Female", "owner": &ids[4].to_bson() }
         },
         {
-            doc! { "name": "Lurch", "pet_type": "Hamster", "age": 1, "gender": "Male", "owner": &ids[0] }
+            doc! { "name": "Lurch", "pet_type": "Hamster", "age": 1, "gender": "Male", "owner": &ids[0].to_bson() }
         },
         {
-            doc! { "name": "Fonz", "pet_type": "Turtle", "age": 10, "gender": "Male", "owner": &ids[1] }
+            doc! { "name": "Fonz", "pet_type": "Turtle", "age": 10, "gender": "Male", "owner": &ids[1].to_bson() }
         },
         {
-            doc! { "name": "Lucy", "pet_type": "Turtle", "age": 10, "gender": "Female", "owner": &ids[1] }
+            doc! { "name": "Lucy", "pet_type": "Turtle", "age": 10, "gender": "Female", "owner": &ids[1].to_bson() }
         },
     ];
 
-    let _pets_results: Vec<Pet> = pets_service.insert_many(pets, None).unwrap();
+    let _pets_results: Vec<ID> = pets_service.insert_many(pets, None).unwrap();
     println!("Data inserted");
 
     // putting this here to prevent dead code check issues
