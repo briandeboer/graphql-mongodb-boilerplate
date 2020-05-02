@@ -34,7 +34,7 @@ env_logger = "0.7.1"
 juniper = "0.14.2"
 log = "0.4.8"
 mongodb-cursor-pagination = { version = "0.2.6", features = ["graphql"] }
-mongodb-base-service = { path = "../../../workspaces/rust/mongodb-base-service", features = ["graphql"] }
+mongodb-base-service = { version = "0.3.0", features = ["graphql"] }
 mongodb = "0.9.2"
 serde = "1.0"
 serde_json = "1.0"

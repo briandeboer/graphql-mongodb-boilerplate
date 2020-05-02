@@ -1296,6 +1296,8 @@ dependencies = [
 [[package]]
 name = "mongodb-base-service"
 version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "137e7511c2ae086b3373153a81c4eb47eafc85482679be2e5a3f08838810c0ed"
 dependencies = [
  "base64 0.12.0",
  "bson",
@@ -1306,7 +1308,6 @@ dependencies = [
  "log",
  "mongodb",
  "mongodb-cursor-pagination",
- "ring",
  "rust-argon2",
  "serde",
  "uuid 0.8.1",
